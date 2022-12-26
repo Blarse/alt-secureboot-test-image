@@ -5,20 +5,30 @@ if [ -d ./keys ]; then
     exit 0
 fi
 
-mkdir -pv keys/nss
-pushd keys
+export HASHER_DIR="$(./create-hasher.sh)"
 
-certutil -d "$PWD/nss" -N --empty-password
+hsh-install -v "$HASHER_DIR" nss-utils pesign
+
+hsh-run -v "$HASHER_DIR" -- bash <<EOF
+cd /.out
+rm -rf ./keys
+
+mkdir -pv keys/nss
+cd keys
+certutil -d "./nss" -N --empty-password
 
 for t in PK KEK DB VENDOR; do
+efikeygen -d "./nss" --ca --self-sign --nickname="Test Secure Boot \$t CA" \
+	  --common-name="CN=Test Secure Boot \$t CA" --kernel
 
-efikeygen -d "$PWD/nss" --ca --self-sign --nickname="Test Secure Boot $t CA" \
-	  --common-name="CN=Test Secure Boot $t CA" --kernel
-
-certutil -d "$PWD/nss" -L -n "Test Secure Boot $t CA" -a > $t.crt
+certutil -d "./nss" -L -n "Test Secure Boot \$t CA" -a > \$t.crt
 done
 
-certutil -d "$PWD/nss" -L -n "Test Secure Boot VENDOR CA" -r > VENDOR.cer
+certutil -d "./nss" -L -n "Test Secure Boot VENDOR CA" -r > VENDOR.cer
 
-pk12util -d "$PWD/nss" -o VENDOR.p12 -n 'Test Secure Boot VENDOR CA' -K '' -W ''
-popd
+pk12util -d "./nss" -o VENDOR.p12 -n 'Test Secure Boot VENDOR CA' -K '' -W ''
+
+chmod +r -R .
+EOF
+
+cp -r "$HASHER_DIR/chroot/.out/keys" ./
