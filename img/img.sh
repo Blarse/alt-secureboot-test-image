@@ -23,8 +23,12 @@ Dir::Etc::sourceparts "/var/empty";
 APT::Cache-Limit "1073741824";
 EOF
 
-#make DEBUG=1 APTCONF=$APT_CONFIG REPORT=1 live-rescue.iso
-make DEBUG=1 APTCONF=$APT_CONFIG REPORT=1 grub.iso
+make DEBUG=1 APTCONF=$APT_CONFIG REPORT=1 live-rescue.iso
+rm -f  ../../live-rescue-*.iso
+mv $(readlink -f $TMP/out/live-rescue-latest-x86_64.iso) ../../
 
-mv $(readlink -f $TMP/out/grub-latest-x86_64.iso) ../../
+#make DEBUG=1 APTCONF=$APT_CONFIG REPORT=1 grub.iso
+#rm -f  ../../grub-*.iso
+#mv $(readlink -f $TMP/out/grub-latest-x86_64.iso) ../../
+
 popd

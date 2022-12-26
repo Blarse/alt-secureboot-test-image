@@ -15,31 +15,7 @@ REPO_DIR="$(readlink -m ./repo/RPMS.hasher)"
 [ -d ./shim ] || git clone --depth=4 "$SHIM_UNSIGNED"
 [ -d ./shim-signed ] || git clone --depth=1 "$SHIM_SIGNED"
 
-# prepare hasher
-WORKDIR="$TMP/secureboot-hasher"
-if [ ! -d "$WORKDIR" ]; then
-    mkdir $WORKDIR
-    SOURCES_LIST=$(mktemp)
-    APT_CONFIG=$(mktemp)
-
-    cat > $SOURCES_LIST <<EOF
-rpm http://mirror.yandex.ru altlinux/Sisyphus/x86_64 classic
-rpm http://mirror.yandex.ru altlinux/Sisyphus/noarch classic
-rpm http://mirror.yandex.ru altlinux/Sisyphus/x86_64-i586 classic
-EOF
-
-    cat > $APT_CONFIG <<EOF
-Dir::Etc::main "/dev/null";
-Dir::Etc::parts "/var/empty";
-Dir::Etc::sourcelist "$SOURCES_LIST";
-Dir::Etc::sourceparts "/var/empty";
-APT::Cache-Limit "1073741824";
-EOF
-
-    # init hasher
-    hsh -v --init --without-stuff --no-contents-indices \
-	--apt-config=$APT_CONFIG $WORKDIR
-fi
+WORKDIR="$PWD/hasher"
 
 # Spoof the cert
 rm -f shim/.gear/altlinux-ca.cer
@@ -62,14 +38,14 @@ find usr \( -name '*.efi' -o -name '*.CSV' \) -exec cp {} shim-signed/ \;
 rm -rf usr
 
 for f in shim-signed/shim{ia32,x64}.efi; do
-    pesign -n "../../keys" -s -c "Test Secure Boot DB CA" \
+    pesign -n "../../keys/nss" -s -c "Test Secure Boot DB CA" \
     	   -i "$f" \
     	   -o "$f.signed"
     mv "$f.signed" "$f"
 done
 
 for f in shim-signed/{fb,mm}{ia32,x64}.efi; do
-    pesign -n "../../keys" -s -c "Test Secure Boot VENDOR CA" \
+    pesign -n "../../keys/nss" -s -c "Test Secure Boot VENDOR CA" \
     	   -i "$f" \
     	   -o "$f.signed"
     mv "$f.signed" "$f"
