@@ -1,0 +1,4 @@
+/build
+/OVMF_VARS_4M.secboot.fd
+*.iso
+*.img

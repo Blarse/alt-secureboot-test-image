@@ -1,8 +1,5 @@
 #!/bin/sh -eux
 
-SHIM_UNSIGNED="git://git.altlinux.org/people/egori/packages/shim.git"
-SHIM_SIGNED="git://git.altlinux.org/gears/s/shim-signed.git"
-
 [ -d ./shim ] || git clone --depth=4 "$SHIM_UNSIGNED"
 [ -d ./shim-signed ] || git clone --depth=1 "$SHIM_SIGNED"
 
@@ -13,9 +10,8 @@ cp $KEYS_DIR/VENDOR.cer shim/.gear/altlinux-ca.cer
 # Build shim-unsigned
 pushd shim
 git clean -fd
-gear --zstd --commit -v ./pkg.tar
-hsh-rebuild -v --repo-bin="$REPO_DIR" "$HASHER_DIR" ./pkg.tar
-rm pkg.tar
+gear --zstd --commit -v --hasher -- \
+     hsh-rebuild -v --repo-bin="$REPO_DIR" "$HASHER_DIR"
 popd
 
 # replace shim efi binaries in shim-signed and sign them
@@ -41,7 +37,6 @@ for f in shim-signed/{fb,mm}{ia32,x64}.efi; do
 done
 
 # build shim-signed
-gear --zstd --commit -v ./pkg.tar
-hsh-rebuild -v --repo-bin="$REPO_DIR" "$HASHER_DIR" ./pkg.tar
-rm pkg.tar
+gear --zstd --commit -v --hasher -- \
+     hsh-rebuild -v --repo-bin="$REPO_DIR" "$HASHER_DIR"
 popd

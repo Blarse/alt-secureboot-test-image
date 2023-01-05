@@ -1,9 +1,9 @@
 #!/bin/sh -efu
 
 # create hasher
-if [ ! -d "$(readlink -m ./hasher)" ]; then
-    HASHERDIR="$(mktemp -d -t sb-hasher.XXXXXXXXXX)"
-    ln -svf "$HASHERDIR" ./hasher
+if [ ! -d "$(readlink -m $HASHER_DIR)" ]; then
+    HASHERDIR="$(mktemp -d -p $HASHER_BASE sb-hasher.XXXXXXXXXX)"
+    ln -svf "$HASHERDIR" $HASHER_DIR
 
     SOURCES_LIST=$(mktemp)
     APT_CONFIG=$(mktemp)
@@ -24,6 +24,7 @@ EOF
 
     # init hasher
     hsh -v --init --without-stuff --no-contents-indices \
-	--apt-config=$APT_CONFIG ./hasher
+	--apt-config=$APT_CONFIG $HASHER_DIR
+
+    rm $SOURCES_LIST $APT_CONFIG
 fi
-echo "$PWD/hasher"

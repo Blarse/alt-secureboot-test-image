@@ -1,16 +1,11 @@
 #!/bin/sh -eu
 
-mkdir -pv vm
-
 owner=$(uuidgen --namespace @dns --name alt-test --sha1)
 
-if [ -f ./vm/OVMF_VARS_4M.secboot.fd ]; then
-    echo ./vm/OVMF_VARS_4M.secboot.fd already exists
+if [ -f ./OVMF_VARS_4M.secboot.fd ]; then
+    echo ./OVMF_VARS_4M.secboot.fd already exists
     exit 0
 fi
-
-export HASHER_DIR="$(./create-hasher.sh)"
-export KEYS_DIR="$(readlink -m ./keys)"
 
 hsh-install -v "$HASHER_DIR" python3-module-virt-firmware edk2-ovmf
 
@@ -28,4 +23,4 @@ virt-fw-vars --input /usr/share/OVMF/OVMF_VARS_4M.fd \
 EOF
 rm -rf "$HASHER_DIR/chroot/.in/keys"
 
-cp "$HASHER_DIR/chroot/.out/OVMF_VARS_4M.secboot.fd" ./vm/OVMF_VARS_4M.secboot.fd
+cp "$HASHER_DIR/chroot/.out/OVMF_VARS_4M.secboot.fd" ./OVMF_VARS_4M.secboot.fd

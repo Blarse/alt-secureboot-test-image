@@ -1,15 +1,13 @@
-#!/bin/sh -efu
+#!/bin/sh -eu
 
-if [ -d ./keys ]; then
-    echo keys already exist
+if [ -d $KEYS_DIR ]; then
+    echo "'$KEYS_DIR'" already exist
     exit 0
 fi
 
-export HASHER_DIR="$(./create-hasher.sh)"
+hsh-install -v $HASHER_DIR nss-utils pesign
 
-hsh-install -v "$HASHER_DIR" nss-utils pesign
-
-hsh-run -v "$HASHER_DIR" -- bash <<EOF
+hsh-run -v $HASHER_DIR -- bash <<EOF
 cd /.out
 rm -rf ./keys
 
@@ -31,4 +29,6 @@ pk12util -d "./nss" -o VENDOR.p12 -n 'Test Secure Boot VENDOR CA' -K '' -W ''
 chmod +r -R .
 EOF
 
-cp -r "$HASHER_DIR/chroot/.out/keys" ./
+mkdir -pv $KEYS_DIR
+cp -r $HASHER_DIR/chroot/.out/keys/* $KEYS_DIR/
+hsh-run -v $HASHER_DIR -- rm -rf /.out/keys

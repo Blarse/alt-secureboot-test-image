@@ -5,10 +5,10 @@ mkdir -pv vm
 set -Eeuxo pipefail
 
 MACHINE_NAME="secureboot"
-QEMU_IMG="./vm/${MACHINE_NAME}.img"
+QEMU_IMG="./${MACHINE_NAME}.img"
 SSH_PORT="5555"
 OVMF_CODE="/usr/share/OVMF/OVMF_CODE_4M.secboot.fd"
-OVMF_VARS="./vm/OVMF_VARS_4M.secboot.fd"
+OVMF_VARS="./OVMF_VARS_4M.secboot.fd"
 
 if [ ! -e "${QEMU_IMG}" ]; then
         qemu-img create -f qcow2 "${QEMU_IMG}" 8G
@@ -26,6 +26,7 @@ qemu-system-x86_64 \
         -global driver=cfi.pflash01,property=secure,value=on \
         -drive if=pflash,format=raw,unit=0,file="${OVMF_CODE}",readonly=on \
         -drive if=pflash,format=raw,unit=1,file="${OVMF_VARS}" \
+	-cdrom ./*.iso
         $@
 
 #        -drive file="${QEMU_IMG}",format=qcow2 \
