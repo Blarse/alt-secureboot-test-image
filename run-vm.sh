@@ -1,7 +1,5 @@
 #!/bin/sh
 
-mkdir -pv vm
-
 set -Eeuxo pipefail
 
 MACHINE_NAME="secureboot"
@@ -26,7 +24,7 @@ qemu-system-x86_64 \
         -global driver=cfi.pflash01,property=secure,value=on \
         -drive if=pflash,format=raw,unit=0,file="${OVMF_CODE}",readonly=on \
         -drive if=pflash,format=raw,unit=1,file="${OVMF_VARS}" \
-	-cdrom ./*.iso
+	-cdrom ./*.iso \
         $@
 
 #        -drive file="${QEMU_IMG}",format=qcow2 \

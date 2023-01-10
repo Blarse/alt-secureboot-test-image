@@ -21,7 +21,8 @@ Dir::Etc::sourceparts "/var/empty";
 APT::Cache-Limit "1073741824";
 EOF
 
-make DEBUG=1 APTCONF=$APT_CONFIG REPORT=1 live-rescue.iso
+make BRANCH=sisyphus DEBUG=1 APTCONF=$APT_CONFIG REPORT=1 \
+     BUILDDIR=$HASHER_DIR/image live-rescue.iso
 rm -f  $BUILD_DIR/live-rescue-*.iso
 mv $(readlink -f $TMP/out/live-rescue-latest-x86_64.iso) $BUILD_DIR
 
