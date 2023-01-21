@@ -6,8 +6,10 @@ source $DIR/config.sh
 
 owner=$(uuidgen --namespace @dns --name alt-test --sha1)
 
-if [ -f $VMDIR/OVMF_VARS_4M.secboot.fd ]; then
+if [ -f $VMDIR/OVMF_VARS_4M.secboot.fd \
+	-a "${1:-}" != "-r" -a "${1:-}" != "--rebuild" ]; then
     echo $VMDIR/OVMF_VARS_4M.secboot.fd already exists
+    echo Run with -r/--rebuild to force rebuild
     exit 0
 fi
 
