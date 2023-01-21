@@ -29,4 +29,4 @@ virt-fw-vars --input /usr/share/OVMF/OVMF_VARS_4M.fd \
 EOF
 rm -rf "$HASHERDIR/chroot/.in/keys"
 
-cp "$HASHERDIR/chroot/.out/OVMF_VARS_4M.secboot.fd" $VMDIR/OVMF_VARS_4M.secboot.fd
+cp -f "$HASHERDIR/chroot/.out/OVMF_VARS_4M.secboot.fd" $VMDIR/OVMF_VARS_4M.secboot.fd

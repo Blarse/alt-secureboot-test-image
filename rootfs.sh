@@ -44,6 +44,8 @@ set -x
 mkdir -pv $ROOTFSDIR
 rm -f $ROOTFSDIR/boot/vmlinuz-* $ROOTFSDIR/boot/initrd-*
 cp -r $HASHERDIR/chroot/.out/boot $ROOTFSDIR
+hsh-run $HASHERDIR -- rm -rf /.out/boot
+
 pushd $ROOTFSDIR/boot > /dev/null
 mv ./vmlinuz-* ./vmlinuz-alt
 mv ./initrd-*.img ./initrd.img

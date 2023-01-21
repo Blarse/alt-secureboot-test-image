@@ -4,10 +4,10 @@ DIR=$(dirname $(readlink -f $0))
 
 source $DIR/config.sh
 
-echo "Building alt-sb.img"
 
 #TODO: run in hasher
 rm -rv $ALT_SB_IMAGE
+echo "Building alt-sb.img"
 guestfish <<EOF
 sparse $ALT_SB_IMAGE 256M
 run

@@ -1,4 +1,4 @@
-#!/bin/sh -efux
+#!/bin/sh -efu
 
 DIR=$(dirname $(readlink -f $0))
 
@@ -8,6 +8,8 @@ MACHINE_NAME="secureboot"
 SSH_PORT="5555"
 OVMF_CODE="/usr/share/OVMF/OVMF_CODE_4M.secboot.fd"
 OVMF_VARS="$VMDIR/OVMF_VARS_4M.secboot.fd"
+
+$DIR/ovmf-vars.sh -r
 
 qemu-system-x86_64 \
         -enable-kvm \
