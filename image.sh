@@ -1,9 +1,15 @@
-#!/bin/sh -eux
+#!/bin/sh -eu
 
+DIR=$(dirname $(readlink -f $0))
 
+source $DIR/config.sh
 
+echo "Building alt-sb.img"
+
+#TODO: run in hasher
+rm -rv $ALT_SB_IMAGE
 guestfish <<EOF
-sparse sb.img 256M
+sparse $ALT_SB_IMAGE 256M
 run
 
 part-init /dev/sda efi
@@ -13,10 +19,14 @@ mkfs fat /dev/sda1
 mkfs ext4 /dev/sda2
 
 mount /dev/sda2 /
-copy-in rootfs/boot /
+mkdir /boot
 mkdir /boot/efi
 mount /dev/sda1 /boot/efi
-copy-in esp/EFI /boot/efi
+copy-in $ROOTFSDIR/boot /
+
+ls /boot/
+ls /boot/efi
+
 umount /dev/sda1
 umount /dev/sda2
 EOF

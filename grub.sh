@@ -4,15 +4,11 @@ DIR=$(dirname $(readlink -f $0))
 
 source $DIR/config.sh
 
-[ -d ./grub ] || git clone --depth=1 "$GRUB"
-
-mkdir -pv $REPODIR
-
 if [ ! -s $REPODIR/grub-efi*.rpm -o "${1:-}" = "-r" -o "${1:-}" = "--rebuild" ]
 then
     echo "Building grub"
     source $DIR/hasher.sh
-    GIT_DIR="$PWD/grub/.git" GIT_WORK_TREE="$PWD/grub" gear \
+    GIT_DIR="$GRUBDIR/.git" GIT_WORK_TREE="$GRUBDIR" gear \
 	   --zstd --commit -v --hasher -- \
 	   hsh-rebuild -v --repo-bin="$REPODIR" "$HASHERDIR"
 else

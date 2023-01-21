@@ -1,16 +1,18 @@
-#!/bin/sh
+#!/bin/sh -efux
 
-set -Eeuxo pipefail
+DIR=$(dirname $(readlink -f $0))
+
+source $DIR/config.sh
 
 MACHINE_NAME="secureboot"
-QEMU_IMG="./${MACHINE_NAME}.img"
+#QEMU_IMG="$VMDIR/${MACHINE_NAME}.img"
 SSH_PORT="5555"
 OVMF_CODE="/usr/share/OVMF/OVMF_CODE_4M.secboot.fd"
-OVMF_VARS="./OVMF_VARS_4M.secboot.fd"
+OVMF_VARS="$VMDIR/OVMF_VARS_4M.secboot.fd"
 
-if [ ! -e "${QEMU_IMG}" ]; then
-        qemu-img create -f qcow2 "${QEMU_IMG}" 8G
-fi
+# if [ ! -e "${QEMU_IMG}" ]; then
+#         qemu-img create -f qcow2 "${QEMU_IMG}" 8G
+# fi
 
 qemu-system-x86_64 \
         -enable-kvm \
@@ -24,7 +26,8 @@ qemu-system-x86_64 \
         -global driver=cfi.pflash01,property=secure,value=on \
         -drive if=pflash,format=raw,unit=0,file="${OVMF_CODE}",readonly=on \
         -drive if=pflash,format=raw,unit=1,file="${OVMF_VARS}" \
-	-cdrom ./*.iso \
+	-drive format=raw,file=$ALT_SB_IMAGE \
+	-boot menu=on \
         $@
 
 #        -drive file="${QEMU_IMG}",format=qcow2 \

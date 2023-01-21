@@ -25,9 +25,11 @@
 
 DIR=$(dirname $(readlink -f $0))
 
-mkdir -v ./keys
-
 source $DIR/config.sh
+
+#NOTE(egori): this fails if KEYDIR exists
+mkdir -v $KEYDIR
+
 source $DIR/hasher.sh
 
 hsh-install -v $HASHERDIR nss-utils pesign
@@ -59,5 +61,5 @@ certutil -d "./nss" -L -n "SB TEST ALTDB" -r > ALTDB.cer
 chmod +r -R .
 EOF
 
-cp -r $HASHERDIR/chroot/.out/keys/* ./keys
+cp -r $HASHERDIR/chroot/.out/keys/* $KEYDIR
 hsh-run -v $HASHERDIR -- rm -rf /.out/keys

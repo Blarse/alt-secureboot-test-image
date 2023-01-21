@@ -4,10 +4,6 @@ DIR=$(dirname $(readlink -f $0))
 
 source $DIR/config.sh
 
-[ -d ./shim ] || git clone --depth=4 "$SHIM_UNSIGNED"
-
-mkdir -pv $REPODIR
-
 # Build shim
 if [ ! -s $REPODIR/shim-unsigned*.rpm -o \
        "${1:-}" = "-r" -o "${1:-}" = "--rebuild" ]
@@ -15,11 +11,11 @@ then
     echo "Building shim"
 
     # Spoof the cert
-    rm -f shim/.gear/altlinux-ca.cer
-    cp $KEYDIR/ALTCA.cer shim/.gear/altlinux-ca.cer
+    rm -f $SHIMDIR/.gear/altlinux-ca.cer
+    cp $KEYDIR/ALTCA.cer $SHIMDIR/.gear/altlinux-ca.cer
 
     source $DIR/hasher.sh
-    GIT_DIR="$PWD/shim/.git" GIT_WORK_TREE="$PWD/shim" gear \
+    GIT_DIR="$SHIMDIR/.git" GIT_WORK_TREE="$SHIMDIR" gear \
 	   --zstd --commit -v --hasher -- \
 	   hsh-rebuild -v --repo-bin=$REPODIR $HASHERDIR
 else
@@ -42,6 +38,8 @@ for f in unsigned/shim{ia32,x64}.efi; do
     	   -o "$f.signed"
     mv "$f.signed" "$f"
 done
+cp -vf unsigned/shim{ia32,x64}.efi signed/
+cp -vf unsigned/shim{ia32,x64}.efi notalt/
 
 printf 'shimx64.efi,altlinux-unsigned,,This is boot entry with unsigned grub\n' |
     sed -z -e 's/\(.\)/\1\x00/g' > unsigned/BOOTX64.CSV

@@ -5,7 +5,7 @@ DIR=$(dirname $(readlink -f $0))
 source $DIR/config.sh
 source $DIR/hasher.sh
 
-hsh-install -v $HASHERDIR kernel-image-un-def make-initrd make-initrd-devmapper efibootmgr grub
+hsh-install -v $HASHERDIR kernel-image-un-def make-initrd make-initrd-devmapper efibootmgr efivar grub
 
 hsh-run --rooter $HASHERDIR -- bash -c 'cd; cat > initrd.mk' <<EOF
 PUT_PROGS += efibootmgr lsblk efivar
@@ -18,6 +18,8 @@ FEATURES = add-modules add-udev-rules modules-filesystem modules-network devmapp
 DISABLE_GUESS = root ucode resume fstab
 EOF
 
+#TODO
+#NOTE(egori): basically shim's fallback do the same thing
 hsh-run --rooter $HASHERDIR -- bash -c 'cd; cat > bootmgr.sh; chmod +x bootmgr.sh' <<EOF
 efibootmgr --unicode --disk /dev/sdX --part Y --create --label "signed" --loader /EFI/signed/BOOTX64.CSV
 
@@ -26,8 +28,7 @@ efibootmgr --unicode --disk /dev/sdX --part Y --create --label "unsigned" --load
 efibootmgr --unicode --disk /dev/sdX --part Y --create --label "notalt" --loader /EFI/notalt/BOOTX64.CSV
 EOF
 
-
-hsh-run --rooter --mountpoints=/proc,/sys $HASHERDIR -- bash -x <<EOF
+hsh-run --rooter --mountpoints=/proc,/sys $HASHERDIR -- bash <<EOF
 make-initrd -c ~/initrd.mk -k \$(rpm -q --qf '%{VERSION}-un-def-%{RELEASE}' kernel-image-un-def)
 
 cp -r /boot/ /usr/src
@@ -35,16 +36,19 @@ chmod 777 -R /usr/src/boot
 chown -vR builder:  /usr/src/boot
 EOF
 
-hsh-run $HASHERDIR -- bash -x <<EOF
+hsh-run $HASHERDIR -- bash <<EOF
 cp -r /usr/src/boot/ /.out/
 EOF
 
+set -x
 mkdir -pv $ROOTFSDIR
+rm -f $ROOTFSDIR/boot/vmlinuz-* $ROOTFSDIR/boot/initrd-*
 cp -r $HASHERDIR/chroot/.out/boot $ROOTFSDIR
 pushd $ROOTFSDIR/boot > /dev/null
-rm config-* System.map-*
-mv ./vmlinuz-* ./vmlinuz-unsigned
+mv ./vmlinuz-* ./vmlinuz-alt
 mv ./initrd-*.img ./initrd.img
+pesign -f -r -i "vmlinuz-alt" -o "vmlinuz-unsigned" ||:
+rm config-* System.map-* vmlinuz-alt
 
 pesign -n "$KEYDIR/nss" -f -s -c "SB TEST ALTSIG" \
        -i "vmlinuz-unsigned" \
