@@ -1,42 +1,84 @@
-#!/bin/sh -eux
+#!/bin/sh -eu
+
+DIR=$(dirname $(readlink -f $0))
+
+source $DIR/config.sh
 
 [ -d ./shim ] || git clone --depth=4 "$SHIM_UNSIGNED"
-[ -d ./shim-signed ] || git clone --depth=1 "$SHIM_SIGNED"
 
-# Spoof the cert
-rm -f shim/.gear/altlinux-ca.cer
-cp $KEYS_DIR/VENDOR.cer shim/.gear/altlinux-ca.cer
+mkdir -pv $REPODIR
 
-# Build shim-unsigned
-pushd shim
-git clean -fd
-gear --zstd --commit -v --hasher -- \
-     hsh-rebuild -v --repo-bin="$REPO_DIR" "$HASHER_DIR"
-popd
+# Build shim
+if [ ! -s $REPODIR/shim-unsigned*.rpm -o \
+       "${1:-}" = "-r" -o "${1:-}" = "--rebuild" ]
+then
+    echo "Building shim"
 
-# replace shim efi binaries in shim-signed and sign them
-pushd shim-signed
-rm -rf shim-signed
-mkdir shim-signed
-rpm2cpio $REPO_DIR/shim-unsigned*.rpm | cpio -ivd
-find usr \( -name '*.efi' -o -name '*.CSV' \) -exec cp {} shim-signed/ \;
-rm -rf usr
+    # Spoof the cert
+    rm -f shim/.gear/altlinux-ca.cer
+    cp $KEYDIR/ALTCA.cer shim/.gear/altlinux-ca.cer
 
-for f in shim-signed/shim{ia32,x64}.efi; do
-    pesign -n "$KEYS_DIR/nss" -s -c "Test Secure Boot DB CA" \
+    source $DIR/hasher.sh
+    GIT_DIR="$PWD/shim/.git" GIT_WORK_TREE="$PWD/shim" gear \
+	   --zstd --commit -v --hasher -- \
+	   hsh-rebuild -v --repo-bin=$REPODIR $HASHERDIR
+else
+    echo "Shim is already built, force rebuild with '-r' or '--rebuild'"
+fi
+
+# esp
+mkdir -pv $ESPDIR/EFI
+pushd $ESPDIR/EFI >/dev/null
+mkdir -vp BOOT signed unsigned notalt enroll
+mkdir -p shim
+rpm2cpio $REPODIR/shim-unsigned*.rpm | cpio -id -D shim >/dev/null 2>&1
+find shim \( -name '*.efi' -o -name '*.CSV' \) -exec cp -vf {} unsigned/ \;
+rm -rf shim
+
+# shim is always signed: we dont test firmware
+for f in unsigned/shim{ia32,x64}.efi; do
+    pesign -n "$KEYDIR/nss" -f -s -c "SB TEST ALTDB" \
     	   -i "$f" \
     	   -o "$f.signed"
     mv "$f.signed" "$f"
 done
 
-for f in shim-signed/{fb,mm}{ia32,x64}.efi; do
-    pesign -n "$KEYS_DIR/nss" -s -c "Test Secure Boot VENDOR CA" \
-    	   -i "$f" \
-    	   -o "$f.signed"
-    mv "$f.signed" "$f"
+printf 'shimx64.efi,altlinux-unsigned,,This is boot entry with unsigned grub\n' |
+    sed -z -e 's/\(.\)/\1\x00/g' > unsigned/BOOTX64.CSV
+
+printf 'shimia32.efi,altlinux-unsigned,,This is boot entry with unsigned grub\n' |
+    sed -z -e 's/\(.\)/\1\x00/g' > unsigned/BOOTIA32.CSV
+
+printf 'shimx64.efi,altlinux-signed,,This is boot entry with signed grub\n' |
+    sed -z -e 's/\(.\)/\1\x00/g' > signed/BOOTX64.CSV
+
+printf 'shimia32.efi,altlinux-signed,,This is boot entry with signed grub\n' |
+    sed -z -e 's/\(.\)/\1\x00/g' > signed/BOOTIA32.CSV
+
+printf 'shimx64.efi,altlinux-notalt,,This is boot entry with grub signed not by alt\n' |
+    sed -z -e 's/\(.\)/\1\x00/g' > notalt/BOOTX64.CSV
+
+printf 'shimia32.efi,altlinux-notalt,,This is boot entry with grub signed not by alt\n' |
+    sed -z -e 's/\(.\)/\1\x00/g' > notalt/BOOTIA32.CSV
+
+for f in {fb,mm}{ia32,x64}.efi; do
+    pesign -n "$KEYDIR/nss" -f -s -c "SB TEST ALTSIG" \
+    	   -i "unsigned/$f" \
+    	   -o "signed/$f"
+    echo "sign 'unsigned/$f' -> 'signed/$f'"
+    pesign -n "$KEYDIR/nss" -f -s -c "SB TEST NOTALT" \
+    	   -i "unsigned/$f" \
+    	   -o "notalt/$f"
+    echo "sing 'unsigned/$f' -> 'notalt/$f'"
 done
 
-# build shim-signed
-gear --zstd --commit -v --hasher -- \
-     hsh-rebuild -v --repo-bin="$REPO_DIR" "$HASHER_DIR"
-popd
+cp -vf signed/shimia32.efi BOOT/BOOTIA32.EFI
+cp -vf signed/shimx64.efi BOOT/BOOTX64.EFI
+cp -vf signed/mm{ia32,x64}.efi BOOT/
+cp -vf signed/fb{ia32,x64}.efi BOOT/
+
+cp -vf $KEYDIR/ALTCA.cer enroll/
+cp -vf $KEYDIR/ALTDB.cer enroll/
+
+popd >/dev/null
+

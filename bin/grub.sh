@@ -1,35 +1,51 @@
-#!/bin/sh -eux
+#!/bin/sh -eu
+
+DIR=$(dirname $(readlink -f $0))
+
+source $DIR/config.sh
 
 [ -d ./grub ] || git clone --depth=1 "$GRUB"
-[ -d ./alt-uefi-certs ] || git clone --depth=1 "$ALT_UEFI_CERTS"
 
-hsh-install -v $HASHER_DIR pesign nss-utils
+mkdir -pv $REPODIR
 
-pushd alt-uefi-certs
-rm alt-uefi-certs/altlinux-ca.cer
-cp "$KEYS_DIR/VENDOR.cer" alt-uefi-certs/altlinux-ca.cer
-gear --zstd --commit -v --hasher -- \
-     hsh-rebuild -v --repo-bin="$REPO_DIR" "$HASHER_DIR"
-popd
+if [ ! -s $REPODIR/grub-efi*.rpm -o "${1:-}" = "-r" -o "${1:-}" = "--rebuild" ]
+then
+    echo "Building grub"
+    source $DIR/hasher.sh
+    GIT_DIR="$PWD/grub/.git" GIT_WORK_TREE="$PWD/grub" gear \
+	   --zstd --commit -v --hasher -- \
+	   hsh-rebuild -v --repo-bin="$REPODIR" "$HASHERDIR"
+else
+    echo "Grub is already built, force rebuild with '-r' or '--rebuild'"
+fi
 
-# Copy keys
-rm -rf $HASHER_DIR/chroot/.host/nss
-cp -r "$KEYS_DIR/nss" $HASHER_DIR/chroot/.host
-chmod -R a+rx $HASHER_DIR/chroot/.host/nss
+mkdir -vp $ESPDIR/EFI/
+pushd $ESPDIR/EFI >/dev/null
+echo "Installing grub to '$ESPDIR/EFI'"
+mkdir -vp signed unsigned notalt
+mkdir -p grub
+rpm2cpio $REPODIR/grub-efi*.rpm | cpio -id -D grub >/dev/null 2>&1
+mv -v grub/usr/lib64/efi/grub{ia32,x64}.efi unsigned
+rm -rf grub
 
-# Build grub
-pushd grub
-cat > $HASHER_DIR/chroot/.host/postinstall_sign << EOF
-#!/bin/sh
-find /usr/src/tmp/grub-buildroot -name "*.efi" -type f \
-     -exec pesign -v -s -c "Test Secure Boot VENDOR CA" -n "/.host/nss"\
-       -i "{}" -o "{}.signed" \; -exec mv "{}.signed" "{}" \;
+for f in grub{ia32,x64}.efi; do
+    pesign -n "$KEYDIR/nss" -f -s -c "SB TEST ALTSIG" \
+    	   -i "unsigned/$f" \
+    	   -o "signed/$f"
+    echo "sign 'unsigned/$f' -> 'signed/$f'"
+    pesign -n "$KEYDIR/nss" -f -s -c "SB TEST NOTALT" \
+    	   -i "unsigned/$f" \
+    	   -o "notalt/$f"
+    echo "sign 'unsigned/$f' -> 'notalt/$f'"
+done
+
+cat > unsigned/grub.cfg <<EOF
+search --file --set=root /boot/vmlinuz-notalt
+set prefix=(\$root)/boot/grub
+source \$prefix/grub.cfg
 EOF
-chmod a+rx $HASHER_DIR/chroot/.host/postinstall_sign
+echo "wrote 'unsigned/grub.cfg'"
+cp -vf unsigned/grub.cfg signed/grub.cfg
+cp -vf unsigned/grub.cfg notalt/grub.cfg
 
-gear --zstd --commit -v --hasher -- \
-     hsh-rebuild -v --repo-bin="$REPO_DIR" --rpmbuild-args \
-     "--define=\"__spec_install_custom_post /.host/postinstall_sign\"" \
-     "$HASHER_DIR"
-rm -f $HASHER_DIR/chroot/.host/postinstall_sign
-popd
+popd >/dev/null

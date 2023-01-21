@@ -1,29 +1,22 @@
 #!/bin/sh -eux
 
-[ -d ./mkimage-profiles ] || git clone --depth=1 "$MKIMAGE_PROFILES"
 
-pushd ./mkimage-profiles
-SOURCES_LIST=$(mktemp)
-APT_CONFIG=$(mktemp)
 
-cat > $SOURCES_LIST <<EOF
-rpm-dir file:$BUILD_DIR repo hasher
-rpm http://mirror.yandex.ru altlinux/Sisyphus/x86_64 classic
-rpm http://mirror.yandex.ru altlinux/Sisyphus/noarch classic
-rpm http://mirror.yandex.ru altlinux/Sisyphus/x86_64-i586 classic
+guestfish <<EOF
+sparse sb.img 256M
+run
+
+part-init /dev/sda efi
+part-add /dev/sda p 2048 206847
+part-add /dev/sda p 206848 524254
+mkfs fat /dev/sda1
+mkfs ext4 /dev/sda2
+
+mount /dev/sda2 /
+copy-in rootfs/boot /
+mkdir /boot/efi
+mount /dev/sda1 /boot/efi
+copy-in esp/EFI /boot/efi
+umount /dev/sda1
+umount /dev/sda2
 EOF
-
-cat > $APT_CONFIG <<EOF
-Dir::Etc::main "/dev/null";
-Dir::Etc::parts "/var/empty";
-Dir::Etc::sourcelist "$SOURCES_LIST";
-Dir::Etc::sourceparts "/var/empty";
-APT::Cache-Limit "1073741824";
-EOF
-
-make BRANCH=sisyphus DEBUG=1 APTCONF=$APT_CONFIG REPORT=1 \
-     BUILDDIR=$HASHER_DIR/image live-rescue.iso
-rm -f  $BUILD_DIR/live-rescue-*.iso
-mv $(readlink -f $TMP/out/live-rescue-latest-x86_64.iso) $BUILD_DIR
-
-popd

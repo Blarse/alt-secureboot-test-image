@@ -1,13 +1,37 @@
 #!/bin/sh -eu
+#
+# Naming scheme:
+# PK - Platform Key
+# KEK - Key Exchange Key
+# ALTDB - mimics Microsoft Windows UEFI Driver Publisher
+# ALTCA - ALT UEFI SB CA
+# ALTSIG - ALT UEFI SB SIGNER
+# NOTALT - Not signed by ALTCA
+#
+# What signes what
+# - PK and KEK required to enable SB in OVMF
+# - ALTDB signs shim{ia32,x64}.efi
+# - ALTCA signs ALTSIG
+# - ALTSIG signs {mm,fb}{ia32,x64}.efi and grub{ia32,x64}.efi
+# - NOTALT ...
+#
+# Verification
+# - ALTDB enrolled in DB verifies shim{ia32,x64}.efi
+# - ALTCA gose into shim{ia32,x64}.efi
+# - shim verifies binaries signed with ALTSIG
+# - grub uses shim_lock uefi interface for verification
+# - shim(thus grub) fails to verify binaries signed with NOTALT
+#
 
-if [ -d $KEYS_DIR ]; then
-    echo "'$KEYS_DIR'" already exist
-    exit 0
-fi
+DIR=$(dirname $(readlink -f $0))
 
-hsh-install -v $HASHER_DIR nss-utils pesign
+mkdir -v ./keys
 
-hsh-run -v $HASHER_DIR -- bash <<EOF
+source $DIR/config.sh
+source $DIR/hasher.sh
+
+hsh-install -v $HASHERDIR nss-utils pesign
+hsh-run -v $HASHERDIR -- bash <<EOF
 cd /.out
 rm -rf ./keys
 
@@ -15,20 +39,25 @@ mkdir -pv keys/nss
 cd keys
 certutil -d "./nss" -N --empty-password
 
-for t in PK KEK DB VENDOR; do
-efikeygen -d "./nss" --ca --self-sign --nickname="Test Secure Boot \$t CA" \
-	  --common-name="CN=Test Secure Boot \$t CA" --kernel
+# Create CAs
+for t in PK KEK ALTDB ALTCA NOTALT; do
+efikeygen -d "./nss" --ca --self-sign --kernel \
+	  --nickname="SB TEST \$t" \
+	  --common-name="CN=SB TEST \$t"
 
-certutil -d "./nss" -L -n "Test Secure Boot \$t CA" -a > \$t.crt
+certutil -d "./nss" -L -n "SB TEST \$t" -a > \$t.crt
 done
 
-certutil -d "./nss" -L -n "Test Secure Boot VENDOR CA" -r > VENDOR.cer
+# Create signer
+efikeygen -d "./nss" --signer="SB TEST ALTCA" --kernel \
+	  --nickname="SB TEST ALTSIG" \
+	  --common-name="CN=SB TEST ALTSIG"
 
-pk12util -d "./nss" -o VENDOR.p12 -n 'Test Secure Boot VENDOR CA' -K '' -W ''
+certutil -d "./nss" -L -n "SB TEST ALTCA" -r > ALTCA.cer
+certutil -d "./nss" -L -n "SB TEST ALTDB" -r > ALTDB.cer
 
 chmod +r -R .
 EOF
 
-mkdir -pv $KEYS_DIR
-cp -r $HASHER_DIR/chroot/.out/keys/* $KEYS_DIR/
-hsh-run -v $HASHER_DIR -- rm -rf /.out/keys
+cp -r $HASHERDIR/chroot/.out/keys/* ./keys
+hsh-run -v $HASHERDIR -- rm -rf /.out/keys

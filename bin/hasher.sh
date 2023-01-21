@@ -1,14 +1,17 @@
 #!/bin/sh -efu
 
-# create hasher
-if [ ! -d "$(readlink -m $HASHER_DIR)" ]; then
-    HASHERDIR="$(mktemp -d -p $HASHER_BASE sb-hasher.XXXXXXXXXX)"
-    ln -svf "$HASHERDIR" $HASHER_DIR
+if [ -d "$HASHERDIR/chroot" ]; then
+    echo "Using existing hasher: $HASHERDIR"
+else
+    ln -svf "$(mktemp -d -t sb-hasher.XXXXXXXXXX)" "$HASHERDIR"
 
     SOURCES_LIST=$(mktemp)
     APT_CONFIG=$(mktemp)
 
+
+    
     cat > $SOURCES_LIST <<EOF
+rpm-dir file:$(dirname $(dirname $REPODIR)) $(basename $(dirname $REPODIR)) hasher
 rpm http://mirror.yandex.ru altlinux/Sisyphus/x86_64 classic
 rpm http://mirror.yandex.ru altlinux/Sisyphus/noarch classic
 rpm http://mirror.yandex.ru altlinux/Sisyphus/x86_64-i586 classic
@@ -24,7 +27,7 @@ EOF
 
     # init hasher
     hsh -v --init --without-stuff --no-contents-indices \
-	--apt-config=$APT_CONFIG $HASHER_DIR
+	--apt-config=$APT_CONFIG $HASHERDIR
 
     rm $SOURCES_LIST $APT_CONFIG
 fi
